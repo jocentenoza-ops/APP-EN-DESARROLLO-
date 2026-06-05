@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>LURIGUARD</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', Arial, sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #e3f2fd, #f5f7fa);
+    overflow: hidden;
+}
+
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 300px;
+    height: 100vh;
+    background: white;
+    box-shadow: 2px 0 20px rgba(0, 0, 0, 0.08);
+    z-index: 1000;
+    padding: 25px 20px;
+    transition: all 0.3s ease;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 28px;
+    font-weight: 800;
+    margin-bottom: 30px;
+    letter-spacing: 1px;
+    color: #1e3a8a;
+}
+
+.logo img {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.logo span {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.search-box {
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.search-box .form-control {
+    border-radius: 12px;
+    padding: 12px 15px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.3s;
+}
+
+.search-box .form-control:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.suggestions-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    display: none;
+}
+
+.suggestions-dropdown.active {
+    display: block;
+}
+
+.suggestion-item {
+    padding: 12px 15px;
+    cursor: pointer;
+    transition: 0.3s;
+    border-bottom: 1px solid #eee;
+}
+
+.suggestion-item:hover {
+    background: linear-gradient(135deg, #e3f2fd, #f5f7fa);
+    transform: translateX(5px);
+}
+
+.suggestion-item strong {
+    color: #2563eb;
+}
+
+.suggestion-item small {
+    font-size: 11px;
+    color: #666;
+}
+
+.menu-item {
+    position: relative;
+    overflow: hidden;
+    padding: 12px 15px;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: all 0.3s;
+    font-weight: 500;
+}
+
+.menu-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    transform: scaleY(0);
+    transition: 0.3s ease;
+}
+
+.menu-item:hover::before {
+    transform: scaleY(1);
+}
+
+.menu-item:hover {
+    padding-left: 25px;
+    background: linear-gradient(135deg, #e3f2fd, #f5f7fa);
+    transform: translateX(5px);
+}
+
+.map-container {
+    margin-left: 300px;
+    height: 100vh;
+    position: relative;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+.info-card {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 300px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    animation: slideIn 0.6s ease;
+    backdrop-filter: blur(10px);
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(50px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.info-card h5 {
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: #1e3a8a;
+}
+
+.config-panel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 400px;
+    height: 100vh;
+    background: white;
+    padding: 25px;
+    overflow-y: auto;
+    transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 5000;
+    box-shadow: -5px 0 30px rgba(0, 0, 0, 0.2);
+}
+
+.config-panel.active { right: 0; }
+
+#infoPanel {
+    position: fixed;
+    top: 0;
+    right: -450px;
+    width: 400px;
+    height: 100vh;
+    background: white;
+    padding: 25px;
+    overflow-y: auto;
+    transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1001;
+    box-shadow: -5px 0 30px rgba(0, 0, 0, 0.15);
+}
+
+#infoPanel.active { right: 0; }
+
+/* MODO OSCURO */
+.dark-mode { background: #121212; color: white; }
+.dark-mode .sidebar { background: #1e1e1e; color: white; }
+.dark-mode .menu-item { color: white; }
+.dark-mode .menu-item:hover { background: #333; }
+.dark-mode .config-panel { background: #1e1e1e; color: white; }
+.dark-mode #infoPanel { background: #1e1e1e; color: white; }
+.dark-mode .info-card { background: rgba(30, 30, 30, 0.95); color: white; }
+.dark-mode .info-card h5 { color: #60a5fa; }
+.dark-mode .form-control, .dark-mode .form-select { background-color: #2a2a2a; color: white; border: 1px solid #555; }
+.dark-mode .form-control::placeholder { color: #bdbdbd; }
+.dark-mode .suggestions-dropdown { background: #2a2a2a; border-color: #555; }
+.dark-mode .suggestion-item { color: white; border-color: #444; }
+.dark-mode .suggestion-item:hover { background: #3a3a3a; }
+.dark-mode .suggestion-item strong { color: #60a5fa; }
+.dark-mode .suggestion-item small { color: #aaa; }
+.dark-mode .list-group-item { background: #2a2a2a; color: white; border-color: #444; }
+
+/* LOGIN */
+#loginScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #0f172a, #1e3a8a, #2563eb);
+    background-size: 400% 400%;
+    animation: fondoAnimado 12s ease infinite;
+    z-index: 2000;
+}
+
+@keyframes fondoAnimado {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.login-box {
+    width: 420px;
+    max-width: 90%;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 40px 35px;
+    border-radius: 25px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    animation: entrada 0.8s ease;
+}
+
+@keyframes entrada {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.login-logo {
+    width: 120px;
+    margin: 0 auto 20px;
+    display: block;
+}
+
+.login-logo-frame {
+    width: 100%;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+
+.login-logo-img {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+}
+
+.login-title {
+    color: white;
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+.login-subtitle {
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 25px;
+}
+
+.login-input {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.95);
+    font-size: 16px;
+    transition: all 0.3s;
+}
+
+.login-input:focus {
+    border: 2px solid #2563eb;
+    box-shadow: 0 0 15px rgba(37, 99, 235, 0.5);
+}
+
+.btn-login {
+    width: 100%;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #2563eb, #1e3a8a);
+    color: white;
+    font-weight: bold;
+    margin-bottom: 12px;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.btn-login:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(37, 99, 235, 0.5); }
+
+.btn-register {
+    width: 100%;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #16a34a, #15803d);
+    color: white;
+    font-weight: bold;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.btn-register:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(22, 163, 74, 0.5); }
+
+.notificacion {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    background: linear-gradient(135deg, #2563eb, #1e3a8a);
+    color: white;
+    padding: 14px 24px;
+    border-radius: 12px;
+    z-index: 6000;
+    animation: slideUp 0.3s ease;
+    font-weight: 500;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(50px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.favorite-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    transition: 0.3s;
+}
+
+.favorite-item:hover { transform: translateX(-5px); }
+
+.list-group-item {
+    border-radius: 10px !important;
+    margin-bottom: 8px;
+    transition: all 0.3s;
+}
+
+.list-group-item:hover { transform: translateX(5px); }
+
+.btn-primary { background: linear-gradient(135deg, #2563eb, #1e3a8a); border: none; }
+.btn-success { background: linear-gradient(135deg, #16a34a, #15803d); border: none; }
+.btn-danger { background: linear-gradient(135deg, #dc2626, #b91c1c); border: none; }
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #2563eb, #1e3a8a); border-radius: 10px; }
+
+/* ============ RADAR/BRÚJULA ============ */
+.radar-container {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 100px;
+    height: 100px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #2563eb;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.radar-container:hover {
+    box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
+    transform: scale(1.05);
+}
+
+.radar-inner {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    background: radial-gradient(circle, #e0f2fe, #bfdbfe);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #0284c7;
+}
+
+.radar-pointer {
+    position: absolute;
+    width: 3px;
+    height: 35px;
+    background: linear-gradient(to top, #dc2626, #991b1b);
+    bottom: 45%;
+    left: 50%;
+    transform-origin: bottom center;
+    border-radius: 2px;
+    transition: transform 0.3s ease;
+    transform-origin: 50% 45px;
+}
+
+.radar-pointer::before {
+    content: "";
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 8px solid #dc2626;
+    top: -8px;
+    left: -2px;
+}
+
+.radar-center {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #2563eb;
+    border-radius: 50%;
+    border: 2px solid white;
+    z-index: 10;
+}
+
+.radar-labels {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    font-size: 8px;
+    font-weight: bold;
+    color: #0284c7;
+}
+
+.radar-label {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.radar-label-n { top: 2px; left: 50%; transform: translateX(-50%); }
+.radar-label-s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.radar-label-e { right: 2px; top: 50%; transform: translateY(-50%); }
+.radar-label-w { left: 2px; top: 50%; transform: translateY(-50%); }
+
+.radar-heading {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    font-weight: bold;
+    color: #dc2626;
+    background: white;
+    padding: 1px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.radar-hidden {
+    display: none !important;
+}
+
+.dark-mode .radar-container {
+    background: #1e1e1e;
+    border-color: #60a5fa;
+}
+
+.dark-mode .radar-inner {
+    background: radial-gradient(circle, #1e293b, #0f172a);
+    border-color: #60a5fa;
+}
+
+.dark-mode .radar-labels {
+    color: #60a5fa;
+}
+
+@media (max-width: 768px) {
+    .sidebar { width: 250px; }
+    .map-container { margin-left: 250px; }
+    .config-panel, #infoPanel { width: 320px; }
+    .info-card { width: 260px; font-size: 12px; }
+    .radar-container { width: 80px; height: 80px; bottom: 20px; right: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+    <div class="login-box">
+        <div class="login-logo"><div class="login-logo-frame"><img src="logo.png" alt="Logo Safelury" class="login-logo-img" onerror="this.style.display='none'"></div></div>
+        <h1 class="login-title">LURIGUARD</h1>
+        <p class="login-subtitle" data-i18n="slogan">Seguridad y Geolocalización</p>
+        <input type="email" id="email" class="login-input" data-i18n-placeholder="email" placeholder="📧 Correo electrónico">
+        <input type="password" id="password" class="login-input" data-i18n-placeholder="password" placeholder="🔒 Contraseña">
+        <button class="btn-login" onclick="iniciarSesion()" data-i18n="login">Iniciar Sesión</button>
+        <button class="btn-register" onclick="mostrarRegistro()" data-i18n="register">Registrarse</button>
+    </div>
+</div>
+
+<div id="appContainer" style="display:none;">
+    <div class="sidebar">
+        <div class="logo">
+            <img src="logo.png" alt="Logo Safelury" onerror="this.style.display='none'">
+            <span>SAFELURY</span>
+        </div>
+        <div class="search-box">
+            <input type="text" class="form-control" id="searchInput" data-i18n-placeholder="search" placeholder="🔍 Buscar lugar...">
+            <div id="suggestions" class="suggestions-dropdown"></div>
+        </div>
+        <div class="menu-item" onclick="openSection('ubicacion')" data-i18n="my_location">📍 Mi ubicación</div>
+        <div class="menu-item" onclick="openSection('hospitales')" data-i18n="hospitals">🏥 Hospitales</div>
+        <div class="menu-item" onclick="openSection('colegios')" data-i18n="schools">🏫 Colegios</div>
+        <div class="menu-item" onclick="openSection('mercados')" data-i18n="markets">🛒 Mercados</div>
+        <div class="menu-item" onclick="openSection('inseguros')" data-i18n="unsafe">⚠️ Lugares Inseguros</div>
+        <div class="menu-item" onclick="openSection('favoritos')" data-i18n="favorites">⭐ Favoritos</div>
+        <div class="menu-item" onclick="openConfig()" data-i18n="settings">⚙ Configuración</div>
+    </div>
+
+    <div class="map-container">
+        <div class="info-card" id="welcomeCard">
+            <h5 data-i18n="title">📍 Lima y San Juan de Lurigancho</h5>
+            <p data-i18n="welcome">Bienvenido al sistema de geolocalización. El círculo abarca toda Lima Metropolitana. Busca cualquier lugar en el buscador.</p>
+        </div>
+        <div id="map"></div>
+        
+        <!-- ============ RADAR/BRÚJULA ============ -->
+        <div id="radarContainer" class="radar-container radar-hidden">
+            <div class="radar-inner">
+                <div class="radar-labels">
+                    <div class="radar-label radar-label-n">N</div>
+                    <div class="radar-label radar-label-s">S</div>
+                    <div class="radar-label radar-label-e">E</div>
+                    <div class="radar-label radar-label-w">O</div>
+                </div>
+                <div id="radarPointer" class="radar-pointer"></div>
+                <div class="radar-center"></div>
+                <div id="radarHeading" class="radar-heading">0°</div>
+            </div>
+        </div>
+        
+        <div id="infoPanel">
+            <h3 id="panelTitle" data-i18n="info_title">📋 Información</h3>
+            <div id="panelContent"></div>
+            <button class="btn btn-danger w-100 mt-3" onclick="closeInfoPanel()" data-i18n="close">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<div id="configPanel" class="config-panel">
+    <h3>⚙ <span data-i18n="settings_title">Configuración</span></h3>
+    <hr>
+    <h5>👤 <span data-i18n="account">Cuenta</span></h5>
+    <input type="text" id="configUsername" class="form-control mb-2" data-i18n-placeholder="username" placeholder="Nombre de usuario">
+    <input type="email" id="configEmail" class="form-control mb-2" data-i18n-placeholder="email" placeholder="Correo electrónico">
+    <input type="password" id="configPassword" class="form-control mb-2" data-i18n-placeholder="new_password" placeholder="Nueva contraseña">
+    <input type="password" id="configConfirmPassword" class="form-control mb-2" data-i18n-placeholder="confirm_password" placeholder="Confirmar contraseña">
+    <button class="btn btn-primary w-100 mb-3" onclick="guardarCambiosCuenta()" data-i18n="save">💾 Guardar Cambios</button>
+    <hr>
+    <h5>🎨 <span data-i18n="appearance">Apariencia</span></h5>
+    <button class="btn btn-dark w-100 mb-3" onclick="toggleDarkMode()" data-i18n="dark_mode">🌙 Modo Oscuro</button>
+    <hr>
+    <h5>🌐 <span data-i18n="language">Idioma</span></h5>
+    <select class="form-select mb-3" id="languageSelect" onchange="changeLanguage()">
+        <option value="es">🇪🇸 Español</option>
+        <option value="en">🇬🇧 English</option>
+        <option value="pt">🇵🇹 Português</option>
+        <option value="fr">🇫🇷 Français</option>
+        <option value="de">🇩🇪 Deutsch</option>
+        <option value="it">🇮🇹 Italiano</option>
+        <option value="zh">🇨🇳 中文</option>
+        <option value="ja">🇯🇵 日本語</option>
+        <option value="ko">🇰🇷 한국어</option>
+    </select>
+    <hr>
+    <h5>⭐ <span data-i18n="favorites_title">Favoritos</span></h5>
+    <button class="btn btn-warning w-100 mb-2" onclick="administrarFavoritos()" data-i18n="manage_favorites">⭐ Administrar Favoritos</button>
+    <button class="btn btn-outline-warning w-100 mb-3" onclick="exportarFavoritos()" data-i18n="export_favorites">📤 Exportar Favoritos</button>
+    <div id="favoritosList"></div>
+    <hr>
+    <h5>🔒 <span data-i18n="security">Privacidad y Seguridad</span></h5>
+    <button class="btn btn-secondary w-100 mb-2" onclick="borrarHistorialCompleto()" data-i18n="clear_history">🗑 Borrar Historial</button>
+    <button class="btn btn-outline-secondary w-100 mb-3" onclick="eliminarDatosGuardados()" data-i18n="delete_data">⚠️ Eliminar Datos Guardados</button>
+    <hr>
+    <h5>🚧 Versión Beta 1.0</h5>
+    <p>Esta aplicación está diseñada para reportar lugares en riesgo y alertar sobre zonas que pueden comprometer la seguridad de los ciudadanos.</p>
+    <hr>
+    <button class="btn btn-danger w-100" onclick="closeConfig()" data-i18n="close_settings">❌ Cerrar</button>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+// ============ CONFIGURACIÓN DE FIREBASE ============
+const firebaseConfig = {
+    apiKey: "AIzaSyBrF5wgHnEvSJPE9GmAgK0K5Qp6TUoR5Hg",
+    authDomain: "luriguard-reportes.firebaseapp.com",
+    databaseURL: "https://luriguard-reportes-default-rtdb.firebaseio.com",
+    projectId: "luriguard-reportes",
+    storageBucket: "luriguard-reportes.firebasestorage.app",
+    messagingSenderId: "123456789012",
+    appId: "1:123456789012:web:abcdef123456"
+};
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+// ============ TRADUCCIONES 9 IDIOMAS ============
+const translations = {
+    es: { slogan: "Seguridad y Geolocalización", login: "Iniciar Sesión", register: "Registrarse", email: "📧 Correo electrónico", password: "🔒 Contraseña", search: "🔍 Buscar lugar...", my_location: "📍 Mi ubicación", hospitals: "🏥 Hospitales", schools: "🏫 Colegios", markets: "🛒 Mercados", unsafe: "⚠️ Lugares Inseguros", favorites: "⭐ Favoritos", settings: "⚙ Configuración", title: "📍 Lima y San Juan de Lurigancho", welcome: "Bienvenido al sistema de geolocalización. El círculo abarca toda Lima Metropolitana.", info_title: "📋 Información", close: "Cerrar", settings_title: "Configuración", account: "Cuenta", username: "Nombre de usuario", new_password: "Nueva contraseña", confirm_password: "Confirmar contraseña", save: "💾 Guardar Cambios", appearance: "Apariencia", dark_mode: "🌙 Modo Oscuro", language: "Idioma", favorites_title: "Favoritos", manage_favorites: "⭐ Administrar Favoritos", export_favorites: "📤 Exportar Favoritos", security: "Privacidad y Seguridad", clear_history: "🗑 Borrar Historial", delete_data: "⚠️ Eliminar Datos Guardados", reports: "Reportes", report: "🚨 Reportar Incidente", view_reports: "📊 Ver Reportes Globales", close_settings: "❌ Cerrar" },
+    en: { slogan: "Security and Geolocation", login: "Login", register: "Register", email: "📧 Email", password: "🔒 Password", search: "🔍 Search place...", my_location: "📍 My location", hospitals: "🏥 Hospitals", schools: "🏫 Schools", markets: "🛒 Markets", unsafe: "⚠️ Unsafe Places", favorites: "⭐ Favorites", settings: "⚙ Settings", title: "📍 Lima and San Juan de Lurigancho", welcome: "Welcome to the geolocation system. The circle covers all of Metropolitan Lima.", info_title: "📋 Information", close: "Close", settings_title: "Settings", account: "Account", username: "Username", new_password: "New password", confirm_password: "Confirm password", save: "💾 Save Changes", appearance: "Appearance", dark_mode: "🌙 Dark Mode", language: "Language", favorites_title: "Favorites", manage_favorites: "⭐ Manage Favorites", export_favorites: "📤 Export Favorites", security: "Privacy & Security", clear_history: "🗑 Clear History", delete_data: "⚠️ Delete Saved Data", reports: "Reports", report: "🚨 Report Incident", view_reports: "📊 View Reports", close_settings: "❌ Close" },
+    pt: { slogan: "Segurança e Geolocalização", login: "Entrar", register: "Registrar", email: "📧 E-mail", password: "🔒 Senha", search: "🔍 Buscar lugar...", my_location: "📍 Minha localização", hospitals: "🏥 Hospitais", schools: "🏫 Escolas", markets: "🛒 Mercados", unsafe: "⚠️ Lugares Perigosos", favorites: "⭐ Favoritos", settings: "⚙ Configurações", title: "📍 Lima e San Juan de Lurigancho", welcome: "Bem-vindo ao sistema de geolocalização. O círculo cobre toda a Lima Metropolitana.", info_title: "📋 Informação", close: "Fechar", settings_title: "Configurações", account: "Conta", username: "Nome de usuário", new_password: "Nova senha", confirm_password: "Confirmar senha", save: "💾 Salvar", appearance: "Aparência", dark_mode: "🌙 Modo Escuro", language: "Idioma", favorites_title: "Favoritos", manage_favorites: "⭐ Gerenciar", export_favorites: "📤 Exportar", security: "Privacidade", clear_history: "🗑 Limpar", delete_data: "⚠️ Excluir", reports: "Relatórios", report: "🚨 Relatar", view_reports: "📊 Ver", close_settings: "❌ Fechar" },
+    fr: { slogan: "Sécurité et Géolocalisation", login: "Connexion", register: "S'inscrire", email: "📧 E-mail", password: "🔒 Mot de passe", search: "🔍 Rechercher...", my_location: "📍 Ma position", hospitals: "🏥 Hôpitaux", schools: "🏫 Écoles", markets: "🛒 Marchés", unsafe: "⚠️ Lieux Dangereux", favorites: "⭐ Favoris", settings: "⚙ Paramètres", title: "📍 Lima et San Juan de Lurigancho", welcome: "Bienvenue dans le système de géolocalisation.", info_title: "📋 Information", close: "Fermer", settings_title: "Paramètres", account: "Compte", username: "Nom d'utilisateur", new_password: "Nouveau mot de passe", confirm_password: "Confirmer", save: "💾 Enregistrer", appearance: "Apparence", dark_mode: "🌙 Mode Sombre", language: "Langue", favorites_title: "Favoris", manage_favorites: "⭐ Gérer", export_favorites: "📤 Exporter", security: "Confidentialité", clear_history: "🗑 Effacer", delete_data: "⚠️ Supprimer", reports: "Signalements", report: "🚨 Signaler", view_reports: "📊 Voir", close_settings: "❌ Fermer" },
+    de: { slogan: "Sicherheit und Geolokalisierung", login: "Anmelden", register: "Registrieren", email: "📧 E-Mail", password: "🔒 Passwort", search: "🔍 Ort suchen...", my_location: "📍 Mein Standort", hospitals: "🏥 Krankenhäuser", schools: "🏫 Schulen", markets: "🛒 Märkte", unsafe: "⚠️ Gefährliche Orte", favorites: "⭐ Favoriten", settings: "⚙ Einstellungen", title: "📍 Lima und San Juan de Lurigancho", welcome: "Willkommen im Geolokalisierungssystem.", info_title: "📋 Information", close: "Schließen", settings_title: "Einstellungen", account: "Konto", username: "Benutzername", new_password: "Neues Passwort", confirm_password: "Passwort bestätigen", save: "💾 Speichern", appearance: "Aussehen", dark_mode: "🌙 Dunkelmodus", language: "Sprache", favorites_title: "Favoriten", manage_favorites: "⭐ Verwalten", export_favorites: "📤 Exportieren", security: "Datenschutz", clear_history: "🗑 Verlauf löschen", delete_data: "⚠️ Daten löschen", reports: "Berichte", report: "🚨 Melden", view_reports: "📊 Anzeigen", close_settings: "❌ Schließen" },
+    it: { slogan: "Sicurezza e Geolocalizzazione", login: "Accedi", register: "Registrati", email: "📧 Email", password: "🔒 Password", search: "🔍 Cerca luogo...", my_location: "📍 Mia posizione", hospitals: "🏥 Ospedali", schools: "🏫 Scuole", markets: "🛒 Mercati", unsafe: "⚠️ Luoghi Pericolosi", favorites: "⭐ Preferiti", settings: "⚙ Impostazioni", title: "📍 Lima e San Juan de Lurigancho", welcome: "Benvenuto nel sistema di geolocalizzazione.", info_title: "📋 Informazioni", close: "Chiudi", settings_title: "Impostazioni", account: "Account", username: "Nome utente", new_password: "Nuova password", confirm_password: "Conferma password", save: "💾 Salva", appearance: "Aspetto", dark_mode: "🌙 Modalità Scura", language: "Lingua", favorites_title: "Preferiti", manage_favorites: "⭐ Gestisci", export_favorites: "📤 Esporta", security: "Privacy", clear_history: "🗑 Cancella", delete_data: "⚠️ Elimina", reports: "Segnalazioni", report: "🚨 Segnala", view_reports: "📊 Visualizza", close_settings: "❌ Chiudi" },
+    zh: { slogan: "安全与地理定位", login: "登录", register: "注册", email: "📧 电子邮箱", password: "🔒 密码", search: "🔍 搜索地点...", my_location: "📍 我的位置", hospitals: "🏥 医院", schools: "🏫 学校", markets: "🛒 市场", unsafe: "⚠️ 危险区域", favorites: "⭐ 收藏夹", settings: "⚙ 设置", title: "📍 利马和圣胡安德卢里甘乔", welcome: "欢迎使用地理定位系统。", info_title: "📋 信息", close: "关闭", settings_title: "设置", account: "账户", username: "用户名", new_password: "新密码", confirm_password: "确认密码", save: "💾 保存", appearance: "外观", dark_mode: "🌙 深色模式", language: "语言", favorites_title: "收藏夹", manage_favorites: "⭐ 管理", export_favorites: "📤 导出", security: "隐私", clear_history: "🗑 清除", delete_data: "⚠️ 删除", reports: "报告", report: "🚨 报告", view_reports: "📊 查看", close_settings: "❌ 关闭" },
+    ja: { slogan: "セキュリティと位置情報", login: "ログイン", register: "登録", email: "📧 メール", password: "🔒 パスワード", search: "🔍 場所を検索...", my_location: "📍 現在地", hospitals: "🏥 病院", schools: "🏫 学校", markets: "🛒 市場", unsafe: "⚠️ 危険な場所", favorites: "⭐ お気に入り", settings: "⚙ 設定", title: "📍 リマとサンフアンデルリガンチョ", welcome: "位置情報システムへようこそ。", info_title: "📋 情報", close: "閉じる", settings_title: "設定", account: "アカウント", username: "ユーザー名", new_password: "新しいパスワード", confirm_password: "パスワード確認", save: "💾 保存", appearance: "外観", dark_mode: "🌙 ダークモード", language: "言語", favorites_title: "お気に入り", manage_favorites: "⭐ 管理", export_favorites: "📤 エクスポート", security: "プライバシー", clear_history: "🗑 履歴を消去", delete_data: "⚠️ データ削除", reports: "レポート", report: "🚨 報告", view_reports: "📊 表示", close_settings: "❌ 閉じる" },
+    ko: { slogan: "보안 및 위치 추적", login: "로그인", register: "회원가입", email: "📧 이메일", password: "🔒 비밀번호", search: "🔍 장소 검색...", my_location: "📍 내 위치", hospitals: "🏥 병원", schools: "🏫 학교", markets: "🛒 시장", unsafe: "⚠️ 위험 지역", favorites: "⭐ 즐겨찾기", settings: "⚙ 설정", title: "📍 리마와 산후안데루리간초", welcome: "위치 추적 시스템에 오신 것을 환영합니다.", info_title: "📋 정보", close: "닫기", settings_title: "설정", account: "계정", username: "사용자 이름", new_password: "새 비밀번호", confirm_password: "비밀번호 확인", save: "💾 저장", appearance: "외관", dark_mode: "🌙 다크 모드", language: "언어", favorites_title: "즐겨찾기", manage_favorites: "⭐ 관리", export_favorites: "📤 내보내기", security: "개인정보", clear_history: "🗑 기록 지우기", delete_data: "⚠️ 데이터 삭제", reports: "신고", report: "🚨 신고", view_reports: "📊 보기", close_settings: "❌ 닫기" }
+};
+
+// ============ CENTRO Y RADIO ============
+const CENTRO_LIMA = { lat: -12.0464, lng: -77.0428 };
+const RADIO_KM = 25;
+
+function calcularDistancia(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
+
+function estaDentroDelCirculo(lat, lng) {
+    return calcularDistancia(CENTRO_LIMA.lat, CENTRO_LIMA.lng, lat, lng) <= RADIO_KM;
+}
+
+// ============ VARIABLES GLOBALES ============
+let map, markersLayer, userLocationLayer, currentMarkers = [], favoritos = [], currentUserEmail = null, ubicacionUsuario = null;
+let todosLosLugares = [];
+let reportesListener = null;
+let lugaresInsegurosFromReports = [];
+let filtradosActuales = [];
+let watchIdGPS = null;
+let marcadorUbicacion = null;
+let circuloPrecision = null;
+let radarHeading = 0;
+let lastLat = null, lastLng = null;
+let deviceOrientationId = null;
+let compassEnabled = false;
+
+// ============ FUNCIÓN PARA OBTENER LUGARES REALES ============
+async function obtenerLugaresReales() {
+    mostrarNotificacion("📡 Cargando todos los lugares del mapa...");
+    
+    const delta = RADIO_KM / 111;
+    const minLat = CENTRO_LIMA.lat - delta;
+    const maxLat = CENTRO_LIMA.lat + delta;
+    const minLon = CENTRO_LIMA.lng - delta;
+    const maxLon = CENTRO_LIMA.lng + delta;
+    
+    const query = `[out:json];(node["amenity"="hospital"](${minLat},${minLon},${maxLat},${maxLon});node["amenity"="clinic"](${minLat},${minLon},${maxLat},${maxLon});node["amenity"="school"](${minLat},${minLon},${maxLat},${maxLon});node["shop"="supermarket"](${minLat},${minLon},${maxLat},${maxLon});node["shop"="mall"](${minLat},${minLon},${maxLat},${maxLon});node["amenity"="marketplace"](${minLat},${minLon},${maxLat},${maxLon});node["amenity"="pharmacy"](${minLat},${minLon},${maxLat},${maxLon});node["amenity"="bank"](${minLat},${minLon},${maxLat},${maxLon});node["amenity"="restaurant"](${minLat},${minLon},${maxLat},${maxLon});node["amenity"="cafe"](${minLat},${minLon},${maxLat},${maxLon});node["amenity"="police"](${minLat},${minLon},${maxLat},${maxLon});node["leisure"="park"](${minLat},${minLon},${maxLat},${maxLon});node["public_transport"="station"](${minLat},${minLon},${maxLat},${maxLon});node["railway"="station"](${minLat},${minLon},${maxLat},${maxLon});way["highway"~"primary|secondary|residential"](${minLat},${minLon},${maxLat},${maxLon}););out center;`;
+    
+    try {
+        const response = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        const lugaresMap = new Map();
+        
+        data.elements.forEach(element => {
+            let lat, lon, nombre = "";
+            if (element.type === "node") { lat = element.lat; lon = element.lon; }
+            else if (element.type === "way" && element.center) { lat = element.center.lat; lon = element.center.lon; }
+            else return;
+            if (!estaDentroDelCirculo(lat, lon)) return;
+            if (element.tags) nombre = element.tags.name || element.tags["name:es"] || "";
+            if (!nombre) return;
+            
+            let category = "lugar", icon = "📍";
+            if (element.tags) {
+                if (element.tags.amenity === "hospital") { category = "hospital"; icon = "🏥"; }
+                else if (element.tags.amenity === "school") { category = "colegio"; icon = "🏫"; }
+                else if (element.tags.shop === "supermarket") { category = "supermercado"; icon = "🛒"; }
+                else if (element.tags.amenity === "marketplace") { category = "mercado"; icon = "🛒"; }
+                else if (element.tags.leisure === "park") { category = "parque"; icon = "🌳"; }
+                else if (element.tags.public_transport === "station") { category = "estacion"; icon = "🚇"; }
+                else if (element.tags.highway === "primary") { category = "avenida"; icon = "🛣️"; }
+                else if (element.tags.highway === "residential") { category = "calle"; icon = "🚶"; }
+            }
+            lugaresMap.set(`${nombre}|${lat}|${lon}`, { name: nombre, lat, lng: lon, category, icon, zona: obtenerZona(lat, lon) });
+        });
+        
+        todosLosLugares = Array.from(lugaresMap.values());
+        mostrarNotificacion(`✅ ${todosLosLugares.length} lugares cargados`);
+        setupSearchAutocomplete();
+    } catch (error) {
+        console.error(error);
+        usarListaLocal();
+    }
+}
+
+function obtenerZona(lat, lng) {
+    if (lat > -11.99 && lat < -11.97 && lng > -76.99 && lng < -76.98) return "Zárate - SJL";
+    if (lat > -11.99 && lat < -11.98 && lng > -76.99 && lng < -76.98) return "Canto Grande - SJL";
+    if (lat > -12.00 && lat < -11.98 && lng > -77.00 && lng < -76.99) return "Centro - SJL";
+    if (lat > -12.08 && lat < -12.04 && lng > -77.05 && lng < -77.02) return "Lima Centro";
+    if (lat > -12.15 && lat < -12.10 && lng > -77.05 && lng < -77.02) return "Miraflores";
+    return "Lima Metropolitana";
+}
+
+function usarListaLocal() {
+    todosLosLugares = [
+        { name: "Hospital San Juan de Lurigancho", lat: -11.9894, lng: -76.9951, category: "hospital", icon: "🏥", zona: "Centro - SJL" },
+        { name: "Hospital de Canto Grande", lat: -11.9825, lng: -76.9880, category: "hospital", icon: "🏥", zona: "Canto Grande - SJL" },
+        { name: "Mercado Zárate", lat: -11.9750, lng: -76.9820, category: "mercado", icon: "🛒", zona: "Zárate - SJL" },
+        { name: "Estación Caja de Agua", lat: -11.9785, lng: -76.9842, category: "estacion", icon: "🚇", zona: "Zárate - SJL" },
+        { name: "Plaza Mayor de Lima", lat: -12.0453, lng: -77.0300, category: "plaza", icon: "🏛️", zona: "Lima Centro" },
+        { name: "Parque Kennedy", lat: -12.1218, lng: -77.0265, category: "parque", icon: "🌳", zona: "Miraflores" }
+    ];
+}
+
+function getIcon(category) {
+    const colors = { hospital: '#ef4444', colegio: '#3b82f6', mercado: '#f59e0b', supermercado: '#f59e0b', estacion: '#10b981', parque: '#22c55e', avenida: '#2563eb', calle: '#2563eb', inseguro: '#dc2626' };
+    const color = colors[category] || '#2563eb';
+    const emoji = getIconEmoji(category);
+    return L.divIcon({ html: `<div style="background-color:${color}; width:28px; height:28px; border-radius:50%; border:2px solid white; display:flex; align-items:center; justify-content:center; font-size:14px;">${emoji}</div>`, iconSize: [28, 28], popupAnchor: [0, -14] });
+}
+
+function getIconEmoji(category) {
+    const emojis = { hospital: '🏥', colegio: '🏫', mercado: '🛒', supermercado: '🛒', estacion: '🚇', parque: '🌳', avenida: '🛣️', calle: '🚶', inseguro: '⚠️' };
+    return emojis[category] || '📍';
+}
+
+// ============ FUNCIONES DEL RADAR/BRÚJULA ============
+function calcularHeading(lat1, lon1, lat2, lon2) {
+    const dLon = lon2 - lon1;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    let heading = Math.atan2(y, x) * (180 / Math.PI);
+    heading = (heading + 360) % 360;
+    return Math.round(heading);
+}
+
+function actualizarRadar(heading) {
+    radarHeading = heading;
+    const radarPointer = document.getElementById('radarPointer');
+    const radarHeadingText = document.getElementById('radarHeading');
+    
+    if (radarPointer) radarPointer.style.transform = `rotate(${heading}deg)`;
+    if (radarHeadingText) radarHeadingText.textContent = `${heading}°`;
+}
+
+function mostrarRadar() {
+    const radarContainer = document.getElementById('radarContainer');
+    if (radarContainer) radarContainer.classList.remove('radar-hidden');
+}
+
+function ocultarRadar() {
+    const radarContainer = document.getElementById('radarContainer');
+    if (radarContainer) radarContainer.classList.add('radar-hidden');
+    radarHeading = 0;
+    actualizarRadar(0);
+}
+
+// ============ BRÚJULA DEL DISPOSITIVO (SIN DELAY) ============
+function iniciarBrujula() {
+    // Solicitar permiso para acceder a la brújula del dispositivo
+    if (typeof DeviceOrientationEvent === 'undefined') {
+        console.log("⚠️ DeviceOrientation no soportado en este navegador");
+        return;
+    }
+
+    // iOS 13+ requiere permiso explícito
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+            .then(permission => {
+                if (permission === 'granted') {
+                    compassEnabled = true;
+                    window.addEventListener('deviceorientation', manejarOrientacionDispositivo, true);
+                    console.log("✅ Brújula del dispositivo activada");
+                }
+            })
+            .catch(() => {
+                console.log("ℹ️ Usando solo GPS para dirección");
+            });
+    } else {
+        // Android y otros navegadores
+        compassEnabled = true;
+        window.addEventListener('deviceorientation', manejarOrientacionDispositivo, true);
+        console.log("✅ Brújula del dispositivo activada");
+    }
+}
+
+function detenerBrujula() {
+    window.removeEventListener('deviceorientation', manejarOrientacionDispositivo, true);
+    compassEnabled = false;
+}
+
+function manejarOrientacionDispositivo(event) {
+    let heading;
+    
+    if (event.webkitCompassHeading !== undefined) {
+        // Webkit browsers (Safari, Chrome mobile)
+        heading = event.webkitCompassHeading;
+    } else if (event.alpha !== undefined) {
+        // Standard: alpha is the compass heading
+        heading = 360 - event.alpha;
+    } else {
+        return;
+    }
+    
+    heading = Math.round(heading) % 360;
+    actualizarRadar(heading);
+    radarHeading = heading;
+}
+
+function mostrarNotificacion(msg, tipo = 'success') {
+    const notif = document.createElement('div');
+    notif.className = 'notificacion';
+    notif.innerHTML = msg;
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 3000);
+}
+
+function limpiarTodosLosMarcadores() {
+    if (markersLayer) markersLayer.clearLayers();
+    if (userLocationLayer) userLocationLayer.clearLayers();
+    currentMarkers = [];
+}
+
+function limpiarMarcadoresSinUsuario() {
+    if (markersLayer) markersLayer.clearLayers();
+    currentMarkers = [];
+}
+
+function actualizarBotonUbicacion() {
+    const boton = document.getElementById('btnRastrearUbicacion');
+    if (!boton) return;
+    if (watchIdGPS !== null) {
+        boton.innerHTML = "✅ Rastreo activo";
+        boton.className = "btn btn-warning w-100 mb-2";
+    } else {
+        boton.innerHTML = "🚀 Iniciar rastreo en tiempo real";
+        boton.className = "btn btn-success w-100 mb-2";
+    }
+}
+
+function dibujarRadioLima() {
+    L.circle([CENTRO_LIMA.lat, CENTRO_LIMA.lng], { color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.08, radius: RADIO_KM * 1000, weight: 3, dashArray: '8, 8' }).addTo(map).bindPopup(`📍 Radio ${RADIO_KM} km`);
+}
+
+function initMap() {
+    map = L.map('map').setView([CENTRO_LIMA.lat, CENTRO_LIMA.lng], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    markersLayer = L.layerGroup().addTo(map);
+    userLocationLayer = L.layerGroup().addTo(map);
+    dibujarRadioLima();
+    cargarFavoritos();
+    usarListaLocal();
+    setupSearchAutocomplete();
+    obtenerLugaresReales();
+    escucharReportesEnTiempoReal();
+    window.addEventListener('beforeunload', detenerRastreo);
+    
+    // ============ CLICK EN EL MAPA PARA VER DISTANCIA (CORREGIDO) ============
+    map.on('click', function(e) {
+    // IMPORTANTE: Usar la variable GLOBAL window.ubicacionUsuario
+    let miUbicacion = window.ubicacionUsuario || ubicacionUsuario;
+    
+    console.log("Click en el mapa - miUbicacion:", miUbicacion);
+    
+    // Verificar que tenemos una ubicación válida
+    if (miUbicacion && typeof miUbicacion.lat === 'number' && typeof miUbicacion.lng === 'number') {
+        const latClick = e.latlng.lat;
+        const lngClick = e.latlng.lng;
+        const latUser = miUbicacion.lat;
+        const lngUser = miUbicacion.lng;
+        
+        console.log("Tu ubicación real - Lat:", latUser, "Lng:", lngUser);
+        console.log("Lugar donde hiciste click - Lat:", latClick, "Lng:", lngClick);
+        
+        // Calcular distancia usando la fórmula de Haversine
+        const R = 6371; // Radio de la Tierra en km
+        const dLat = (latClick - latUser) * Math.PI / 180;
+        const dLon = (lngClick - lngUser) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(latUser * Math.PI / 180) * Math.cos(latClick * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distancia = R * c;
+        
+        let distTexto = "";
+        if (distancia < 1) {
+            distTexto = `${Math.round(distancia * 1000)} metros`;
+        } else if (distancia < 10) {
+            distTexto = `${distancia.toFixed(2)} km`;
+        } else {
+            distTexto = `${distancia.toFixed(1)} km`;
+        }
+        
+        console.log(`✅ DISTANCIA CALCULADA: ${distTexto}`);
+        
+        // Mostrar notificación
+        mostrarNotificacion(`📍 Distancia desde tu ubicación: ${distTexto}`);
+        
+        // Mostrar popup en el punto donde hiciste clic
+        L.popup()
+            .setLatLng(e.latlng)
+            .setContent(`
+                <div style="text-align:center;">
+                    <strong>📍 Punto seleccionado</strong><br>
+                    📏 Distancia desde ti:<br>
+                    <span style="font-size:20px; color:#2563eb; font-weight:bold;">${distTexto}</span>
+                </div>
+            `)
+            .openOn(map);
+    } else {
+        console.log("ERROR: No hay ubicación guardada. miUbicacion =", miUbicacion);
+        mostrarNotificacion("⚠️ Primero activa tu ubicación en 'Mi ubicación'", 'error');
+    }
+    });
+}
+
+
+function addMarkers(locations) {
+    limpiarMarcadoresSinUsuario();
+    locations.forEach(loc => {
+        let distTexto = "";
+        if (ubicacionUsuario) {
+            const d = calcularDistancia(ubicacionUsuario.lat, ubicacionUsuario.lng, loc.lat, loc.lng);
+            distTexto = d < 1 ? ` - ${Math.round(d * 1000)} m` : ` - ${d.toFixed(1)} km`;
+        }
+        const icon = getIcon(loc.category);
+        L.marker([loc.lat, loc.lng], { icon }).addTo(markersLayer).bindPopup(`${loc.icon} ${loc.name}${distTexto}<br>📍 ${loc.zona}`);
+    });
+}
+
+function buscarYMostrarEnMapa() {
+    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+    if (!query) { mostrarNotificacion("🔍 Escribe algo para buscar", 'error'); return; }
+    if (todosLosLugares.length === 0) { mostrarNotificacion("⏳ Cargando lugares...", 'error'); return; }
+    
+    const resultados = todosLosLugares.filter(l => l.name.toLowerCase().includes(query) || l.category.includes(query));
+    if (resultados.length === 0) { mostrarNotificacion(`❌ No se encontraron lugares con "${query}"`, 'error'); return; }
+    
+    limpiarMarcadoresSinUsuario();
+    resultados.forEach(l => {
+        let distTexto = "";
+        if (ubicacionUsuario) {
+            const d = calcularDistancia(ubicacionUsuario.lat, ubicacionUsuario.lng, l.lat, l.lng);
+            distTexto = d < 1 ? ` - ${Math.round(d * 1000)} m` : ` - ${d.toFixed(1)} km`;
+        }
+        const icon = getIcon(l.category);
+        L.marker([l.lat, l.lng], { icon }).addTo(markersLayer).bindPopup(`${l.icon} ${l.name}${distTexto}<br>📍 ${l.zona}`);
+    });
+    const bounds = L.latLngBounds(resultados.map(r => [r.lat, r.lng]));
+    map.fitBounds(bounds, { padding: [50, 50] });
+    guardarBusquedaEnHistorial(query);
+    mostrarNotificacion(`✅ ${resultados.length} lugares encontrados`);
+    document.getElementById('suggestions').classList.remove('active');
+}
+
+function cargarHistorialBusquedas() {
+    const saved = localStorage.getItem('historialBusquedas');
+    try {
+        return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function guardarBusquedaEnHistorial(query) {
+    const texto = String(query || '').trim();
+    if (!texto) return;
+    const historial = cargarHistorialBusquedas();
+    const index = historial.findIndex(item => item.toLowerCase() === texto.toLowerCase());
+    if (index !== -1) historial.splice(index, 1);
+    historial.unshift(texto);
+    if (historial.length > 10) historial.length = 10;
+    localStorage.setItem('historialBusquedas', JSON.stringify(historial));
+}
+
+function mostrarHistorialEnSugerencias() {
+    const suggestionsDiv = document.getElementById('suggestions');
+    const historial = cargarHistorialBusquedas();
+    if (!historial.length) {
+        suggestionsDiv.classList.remove('active');
+        return;
+    }
+    suggestionsDiv.innerHTML = `<div class="suggestion-header">Historial de búsqueda</div>${historial.map(h => `<div class="suggestion-item history-item" onclick="selectHistorySearch('${h.replace(/'/g, "\\'").replace(/\"/g, '\\\"')}')">🔎 ${h}</div>`).join('')}`;
+    suggestionsDiv.classList.add('active');
+}
+
+function selectHistorySearch(value) {
+    document.getElementById('searchInput').value = value;
+    document.getElementById('suggestions').classList.remove('active');
+    buscarYMostrarEnMapa();
+}
+
+function setupSearchAutocomplete() {
+    const searchInput = document.getElementById('searchInput');
+    const suggestionsDiv = document.getElementById('suggestions');
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        if (query.length < 2 || todosLosLugares.length === 0) {
+            if (query.length === 0) {
+                mostrarHistorialEnSugerencias();
+            } else {
+                suggestionsDiv.classList.remove('active');
+            }
+            return;
+        }
+        const filtered = todosLosLugares.filter(l => l.name.toLowerCase().includes(query)).slice(0, 10);
+        if (filtered.length) {
+            suggestionsDiv.innerHTML = filtered.map(l => `<div class="suggestion-item" onclick="selectSuggestion('${l.name.replace(/'/g, "\\'")}', ${l.lat}, ${l.lng}, '${l.category}')"><strong>${l.icon} ${l.name}</strong><br><small>${l.category} | ${l.zona}</small></div>`).join('');
+            suggestionsDiv.classList.add('active');
+        } else {
+            suggestionsDiv.classList.remove('active');
+        }
+    });
+    searchInput.addEventListener('focus', function() {
+        if (!this.value.trim()) mostrarHistorialEnSugerencias();
+    });
+    searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') buscarYMostrarEnMapa(); });
+    document.addEventListener('click', (e) => { if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) suggestionsDiv.classList.remove('active'); });
+}
+
+function selectSuggestion(name, lat, lng, category) {
+    document.getElementById('searchInput').value = name;
+    guardarBusquedaEnHistorial(name);
+    document.getElementById('suggestions').classList.remove('active');
+    limpiarMarcadoresSinUsuario();
+    let distTexto = "";
+    if (ubicacionUsuario) {
+        const d = calcularDistancia(ubicacionUsuario.lat, ubicacionUsuario.lng, lat, lng);
+        distTexto = d < 1 ? `${Math.round(d * 1000)} metros` : `${d.toFixed(1)} km`;
+    }
+    const icon = getIcon(category);
+    const content = ubicacionUsuario ? `<strong>📍 ${name}</strong><br>📏 Distancia: ${distTexto}` : `<strong>📍 ${name}</strong>`;
+    L.marker([lat, lng], { icon }).addTo(markersLayer).bindPopup(content).openPopup();
+    map.setView([lat, lng], 15);
+    if (ubicacionUsuario) mostrarNotificacion(`📍 ${name} - ${distTexto}`);
+}
+
+// ============ RASTREO EN TIEMPO REAL DE UBICACIÓN ============
+function obtenerUbicacion() {
+    limpiarMarcadoresSinUsuario();
+    closeInfoPanel();
+    mostrarNotificacion("📍 Iniciando rastreo de ubicación en tiempo real...");
+    
+    if (!navigator.geolocation) {
+        mostrarNotificacion("❌ Tu navegador no soporta geolocalización", 'error');
+        return;
+    }
+    
+    // Iniciar brújula del dispositivo
+    iniciarBrujula();
+    
+    // Detener rastreo anterior si existe
+    if (watchIdGPS !== null) {
+        navigator.geolocation.clearWatch(watchIdGPS);
+    }
+    
+    // ============ INICIAR RASTREO CONTINUO CON MÁXIMA VELOCIDAD ============
+    watchIdGPS = navigator.geolocation.watchPosition(
+        function(pos) {
+            // ============ ACTUALIZAR UBICACIÓN ============
+            ubicacionUsuario = { 
+                lat: pos.coords.latitude, 
+                lng: pos.coords.longitude,
+                accuracy: pos.coords.accuracy
+            };
+            window.ubicacionUsuario = ubicacionUsuario;
+            
+            console.log("🔄 Ubicación actualizada:", ubicacionUsuario);
+            
+            // ============ LIMPIAR MARCADORES ANTERIORES ============
+            if (marcadorUbicacion) marcadorUbicacion.remove();
+            if (circuloPrecision) circuloPrecision.remove();
+            
+            // ============ CREAR MARCADOR PERSONALIZADO ============
+            const markerHTML = `
+                <div style="
+                    position: relative;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <div style="
+                        position: absolute;
+                        width: 40px;
+                        height: 40px;
+                        background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb);
+                        border-radius: 50%;
+                        border: 3px solid white;
+                        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.6), 0 0 0 2px rgba(37, 99, 235, 0.2);
+                        animation: pulse 2s infinite;
+                    "></div>
+                    <div style="
+                        position: absolute;
+                        font-size: 20px;
+                        z-index: 10;
+                    ">📍</div>
+                </div>
+                <style>
+                    @keyframes pulse {
+                        0%, 100% { box-shadow: 0 4px 12px rgba(37, 99, 235, 0.6), 0 0 0 2px rgba(37, 99, 235, 0.2); }
+                        50% { box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4), 0 0 0 8px rgba(37, 99, 235, 0.1); }
+                    }
+                </style>
+            `;
+            
+            const customIcon = L.divIcon({ 
+                html: markerHTML,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20],
+                popupAnchor: [0, -20]
+            });
+            
+            // ============ AGREGAR NUEVO MARCADOR ============
+            marcadorUbicacion = L.marker([ubicacionUsuario.lat, ubicacionUsuario.lng], { icon: customIcon })
+                .addTo(userLocationLayer)
+                .bindPopup(`
+                    <div style="text-align: center; font-weight: bold;">
+                        <p>📍 TU UBICACIÓN EN TIEMPO REAL</p>
+                        <p style="font-size: 12px; color: #666;">
+                            Lat: ${ubicacionUsuario.lat.toFixed(4)}<br>
+                            Lng: ${ubicacionUsuario.lng.toFixed(4)}<br>
+                            Precisión: ${Math.round(pos.coords.accuracy)} m
+                        </p>
+                    </div>
+                `)
+                .openPopup();
+            
+            // ============ AGREGAR CÍRCULO DE PRECISIÓN ============
+            circuloPrecision = L.circle(
+                [ubicacionUsuario.lat, ubicacionUsuario.lng], 
+                {
+                    radius: pos.coords.accuracy,
+                    color: '#2563eb',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.15,
+                    weight: 2,
+                    dashArray: '5, 5'
+                }
+            ).addTo(userLocationLayer);
+            
+            // ============ ACTUALIZAR RADAR CON HEADING ============
+            if (lastLat !== null && lastLng !== null) {
+                const heading = calcularHeading(lastLat, lastLng, ubicacionUsuario.lat, ubicacionUsuario.lng);
+                actualizarRadar(heading);
+            }
+            lastLat = ubicacionUsuario.lat;
+            lastLng = ubicacionUsuario.lng;
+            
+            // ============ MOSTRAR RADAR ============
+            mostrarRadar();
+            
+            // ============ CENTRAR Y SEGUIR MAPA ============
+            map.setView([ubicacionUsuario.lat, ubicacionUsuario.lng], 16);
+            
+            console.log(`✅ Rastreo activo. Precisión: ${Math.round(pos.coords.accuracy)} m - Heading: ${radarHeading}°`);
+        },
+        function(error) {
+            console.error("Error de geolocalización:", error);
+            let mensaje = "";
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    mensaje = "❌ Permiso denegado. Activa la ubicación en los ajustes.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    mensaje = "❌ Tu ubicación no está disponible.";
+                    break;
+                case error.TIMEOUT:
+                    mensaje = "❌ El GPS tardó demasiado.";
+                    break;
+                default:
+                    mensaje = "❌ Error desconocido.";
+            }
+            mostrarNotificacion(mensaje, 'error');
+        },
+        { 
+            enableHighAccuracy: true,      // Máxima precisión
+            timeout: 5000,                 // Timeout 5 segundos (más rápido)
+            maximumAge: 0                  // Sin caché (siempre actualización nueva)
+        }
+    );
+    actualizarBotonUbicacion();
+}
+
+// ============ DETENER RASTREO ============
+function detenerRastreo() {
+    if (watchIdGPS !== null) {
+        navigator.geolocation.clearWatch(watchIdGPS);
+        watchIdGPS = null;
+        
+        if (marcadorUbicacion) marcadorUbicacion.remove();
+        if (circuloPrecision) circuloPrecision.remove();
+        if (userLocationLayer) userLocationLayer.clearLayers();
+        
+        marcadorUbicacion = null;
+        circuloPrecision = null;
+        ubicacionUsuario = null;
+        lastLat = null;
+        lastLng = null;
+        
+        // Detener brújula del dispositivo
+        detenerBrujula();
+        
+        ocultarRadar();
+        actualizarBotonUbicacion();
+        mostrarNotificacion("⏹️ Rastreo detenido");
+        closeInfoPanel();
+    }
+}
+
+
+// ============ REPORTES EN TIEMPO REAL Y LUGARES INSEGUROS ============
+function cargarReportesActuales() {
+    const consulta = database.ref('reportes').orderByChild('timestamp').limitToLast(50).once('value');
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000));
+
+    return Promise.race([consulta, timeout])
+        .then((snapshot) => {
+            if (!snapshot || typeof snapshot.forEach !== 'function') {
+                throw new Error('No se pudo leer la respuesta de Firebase');
+            }
+
+            lugaresInsegurosFromReports = [];
+            snapshot.forEach((child) => {
+            const reporte = child.val();
+            if (reporte && reporte.lat != null && reporte.lng != null) {
+                lugaresInsegurosFromReports.push({
+                    name: reporte.descripcion || "Incidente reportado",
+                    lat: Number(reporte.lat),
+                    lng: Number(reporte.lng),
+                    category: "inseguro",
+                    icon: "⚠️",
+                    zona: obtenerZona(Number(reporte.lat), Number(reporte.lng)),
+                    fecha: reporte.fecha,
+                    usuario: reporte.usuario
+                });
+            }
+        });
+        console.log(`✅ ${lugaresInsegurosFromReports.length} reportes cargados`);
+        return lugaresInsegurosFromReports;
+    }).catch((error) => {
+        console.error('Error cargando reportes de Firebase:', error);
+        if (lugaresInsegurosFromReports && lugaresInsegurosFromReports.length > 0) {
+            return lugaresInsegurosFromReports;
+        }
+        throw error;
+    });
+}
+
+function escucharReportesEnTiempoReal() {
+    if (reportesListener) return;
+    cargarReportesActuales(); // Cargar reportes iniciales
+    reportesListener = database.ref('reportes').on('child_added', (snapshot) => {
+        const reporte = snapshot.val();
+        if (reporte && map) {
+            const nuevoReporte = {
+                name: reporte.descripcion || "Incidente reportado",
+                lat: reporte.lat,
+                lng: reporte.lng,
+                category: "inseguro",
+                icon: "⚠️",
+                zona: obtenerZona(reporte.lat, reporte.lng),
+                fecha: reporte.fecha,
+                usuario: reporte.usuario
+            };
+            
+            // Evitar duplicados
+            const yaExiste = lugaresInsegurosFromReports.some(r => 
+                r.lat === nuevoReporte.lat && r.lng === nuevoReporte.lng && r.name === nuevoReporte.name
+            );
+            
+            if (!yaExiste) {
+                lugaresInsegurosFromReports.push(nuevoReporte);
+                mostrarNotificacion(`🚨 NUEVO REPORTE: ${reporte.descripcion} - ${reporte.usuario}`);
+            }
+        }
+    });
+}
+
+function reportarIncidente() {
+    if (!navigator.geolocation) {
+        mostrarNotificacion("❌ Tu navegador no soporta geolocalización", 'error');
+        return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(pos => {
+        const incidente = prompt("Describe el incidente (ejemplo: Asalto, Robo, Pelea, Zona peligrosa):");
+        if (incidente && incidente.trim()) {
+            mostrarNotificacion("📍 Guardando reporte...");
+            const nuevoIncidente = {
+                descripcion: incidente,
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                fecha: new Date().toLocaleString(),
+                usuario: currentUserEmail || "Anónimo",
+                timestamp: Date.now()
+            };
+
+            database.ref('reportes').push(nuevoIncidente)
+            .then(() => {
+                mostrarNotificacion(`✅ Incidente reportado: ${incidente}`);
+                cargarReportesActuales().then(() => {
+                    limpiarMarcadoresSinUsuario();
+                    mostrarReportesEnMapa();
+                    openSection('inseguros');
+                });
+            })
+            .catch((error) => {
+                mostrarNotificacion("❌ Error al guardar el reporte: " + error, 'error');
+            });
+        }
+    }, (error) => {
+        mostrarNotificacion("❌ No se pudo obtener tu ubicación", 'error');
+    });
+}
+
+function verReportesGlobales() {
+    cargarReportesActuales().then((reportesFormateados) => {
+        if (!reportesFormateados || reportesFormateados.length === 0) {
+            mostrarNotificacion("Sin reportes", 'error');
+            return;
+        }
+        
+        document.getElementById("panelTitle").innerHTML = "🚨 REPORTES GLOBALES";
+        document.getElementById("panelContent").innerHTML = `<ul class='list-group'>${reportesFormateados.map(r => `<li class='list-group-item list-group-item-danger'><strong>${r.fecha}</strong><br>${r.icon} ${r.name}<br>👤 ${r.usuario}<br>📍 ${r.zona || 'Ubicación'}</li>`).join('')}</ul><button class='btn btn-info mt-3 w-100' onclick='mostrarReportesEnMapa(reportesFormateados)'>🗺️ Mostrar en mapa</button>`;
+        document.getElementById("infoPanel").classList.add("active");
+        mostrarReportesEnMapa(reportesFormateados);
+    }).catch((error) => {
+        mostrarNotificacion("❌ Error al cargar reportes: " + error, 'error');
+    });
+}
+
+function mostrarReportesEnMapa(reportes = null) {
+    limpiarMarcadoresSinUsuario();
+    const source = reportes || lugaresInsegurosFromReports;
+    
+    if (!source || source.length === 0) {
+        mostrarNotificacion("No hay reportes para mostrar", 'error');
+        return;
+    }
+    
+    const icon = L.divIcon({ 
+        html: '<div style="background-color:#dc2626; width:30px; height:30px; border-radius:50%; border:2px solid white; display:flex; align-items:center; justify-content:center; font-size:16px;">🚨</div>', 
+        iconSize: [30, 30],
+        popupAnchor: [0, -15]
+    });
+    
+    source.forEach((r) => {
+        L.marker([r.lat, r.lng], { icon })
+            .addTo(markersLayer)
+            .bindPopup(`
+                <div style="max-width: 200px;">
+                    <strong>🚨 ${r.name}</strong><br>
+                    <small>📍 ${r.zona}</small><br>
+                    <small>👤 ${r.usuario}</small><br>
+                    <small>📅 ${r.fecha}</small>
+                </div>
+            `);
+    });
+    
+    const bounds = L.latLngBounds(source.map(r => [r.lat, r.lng]));
+    map.fitBounds(bounds, { padding: [50, 50] });
+    mostrarNotificacion(`📍 ${source.length} reportes mostrados en el mapa`);
+}
+
+// ============ FUNCIÓN MODIFICADA: OPEN SECTION PARA INSEGUROS CON VER EN MAPA ============
+function openSection(tipo) {
+    document.getElementById("configPanel").classList.remove("active");
+    const panel = document.getElementById("infoPanel"), titulo = document.getElementById("panelTitle"), contenido = document.getElementById("panelContent");
+    panel.classList.add("active");
+    limpiarMarcadoresSinUsuario();
+    
+    if (tipo === 'ubicacion') {
+        titulo.innerHTML = "📍 Mi Ubicación";
+        contenido.innerHTML = `
+            <button id="btnRastrearUbicacion" class="btn btn-success w-100 mb-2" onclick="obtenerUbicacion()">🚀 Iniciar rastreo en tiempo real</button>
+            <button class="btn btn-danger w-100 mb-3" onclick="detenerRastreo()">⏹️ Detener rastreo</button>
+            <p class="text-muted small">El marcador azul seguirá tu movimiento en tiempo real. Haz clic en el mapa para ver distancias.</p>
+        `;
+        actualizarBotonUbicacion();
+    } else if (tipo === 'inseguros') {
+        titulo.innerHTML = "⚠️ LUGARES INSEGUROS (Reportados por usuarios)";
+        const tieneCache = lugaresInsegurosFromReports && lugaresInsegurosFromReports.length > 0;
+        if (tieneCache) {
+            contenido.innerHTML = `
+                <div style='max-height:300px; overflow-y:auto;'>
+                    <ul class='list-group'>
+                        ${lugaresInsegurosFromReports.map(l => `
+                            <li class='list-group-item list-group-item-danger'>
+                                <strong>${l.icon} ${l.name}</strong><br>
+                                <small>📍 ${l.zona}</small><br>
+                                <small>👤 ${l.usuario}</small><br>
+                                <small>📅 ${l.fecha}</small>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                <button class='btn btn-danger mt-3 w-100 mb-2' onclick='mostrarReportesEnMapa(lugaresInsegurosFromReports)'>🗺️ Ver todos en mapa</button>
+                <button class='btn btn-outline-danger mt-2 w-100 mb-2' onclick='reportarIncidente()'>🚨 Nuevo reporte</button>
+                <button class='btn btn-outline-secondary w-100' onclick="openSection('inseguros')">🔄 Refrescar reportes</button>
+            `;
+            mostrarReportesEnMapa(lugaresInsegurosFromReports);
+        } else {
+            contenido.innerHTML = `<p class="text-muted">Cargando reportes...</p><p class="text-muted small mt-2">Si tarda demasiado, revisa tu conexión o presiona actualizar.</p>`;
+        }
+
+        cargarReportesActuales().then((todosInseguros) => {
+            if (!todosInseguros || todosInseguros.length === 0) {
+                contenido.innerHTML = `
+                    <p class="text-muted">Aún no hay reportes de inseguridad.</p>
+                    <button class="btn btn-danger w-100 mb-2" onclick="reportarIncidente()">🚨 Ser el primero en reportar</button>
+                    <button class="btn btn-outline-secondary w-100" onclick="openSection('inseguros')">🔄 Refrescar</button>
+                `;
+            } else {
+                contenido.innerHTML = `
+                    <div style='max-height:300px; overflow-y:auto;'>
+                        <ul class='list-group'>
+                            ${todosInseguros.map(l => `
+                                <li class='list-group-item list-group-item-danger'>
+                                    <strong>${l.icon} ${l.name}</strong><br>
+                                    <small>📍 ${l.zona}</small><br>
+                                    <small>👤 ${l.usuario}</small><br>
+                                    <small>📅 ${l.fecha}</small>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                    <button class='btn btn-danger mt-3 w-100 mb-2' onclick='mostrarReportesEnMapa(todosInseguros)'>🗺️ Ver todos en mapa</button>
+                    <button class='btn btn-outline-danger mt-2 w-100 mb-2' onclick='reportarIncidente()'>🚨 Nuevo reporte</button>
+                    <button class='btn btn-outline-secondary w-100' onclick="openSection('inseguros')">🔄 Refrescar reportes</button>
+                `;
+                mostrarReportesEnMapa(todosInseguros);
+            }
+        }).catch((error) => {
+            const mensaje = error && error.message === 'timeout' ? 'La carga demoró demasiado. Revisa tu conexión.' : 'Error al cargar reportes.';
+            if (lugaresInsegurosFromReports && lugaresInsegurosFromReports.length > 0) {
+                mostrarNotificacion('⚠️ No se actualizó la lista de reportes, usando datos guardados.', 'error');
+            } else {
+                contenido.innerHTML = `<p class="text-danger">${mensaje}</p><button class='btn btn-outline-secondary w-100 mt-2' onclick="openSection('inseguros')">🔄 Reintentar</button>`;
+            }
+            console.error(error);
+        });
+    } else {
+        let filtrados = [];
+        if (tipo === 'hospitales') filtrados = todosLosLugares.filter(l => l.category === "hospital");
+        else if (tipo === 'colegios') filtrados = todosLosLugares.filter(l => l.category === "colegio");
+        else if (tipo === 'mercados') filtrados = todosLosLugares.filter(l => l.category === "mercado" || l.category === "supermercado");
+        else if (tipo === 'favoritos') { openFavoritos(contenido, titulo); return; }
+        
+        if (filtrados.length) {
+            filtradosActuales = filtrados;
+            titulo.innerHTML = `${filtrados[0].icon} ${filtrados[0].category}s (${filtrados.length})`;
+            contenido.innerHTML = `<ul class='list-group' style='max-height:300px; overflow-y:auto;'>${filtrados.slice(0,30).map(l => `<li class='list-group-item'>${l.icon} ${l.name}<br><small>${l.zona}</small></li>`).join('')}${filtrados.length > 30 ? '<li class="list-group-item text-muted">... más lugares</li>' : ''}</ul><button class='btn btn-primary mt-3 w-100' onclick='addMarkers(filtradosActuales)'>Ver en mapa</button>`;
+        } else {
+            titulo.innerHTML = "📋 Información";
+            contenido.innerHTML = `<p>No hay lugares de esta categoría.</p>`;
+        }
+    }
+}
+
+function openFavoritos(contenido, titulo) {
+    titulo.innerHTML = "⭐ Favoritos";
+    actualizarListaFavoritos();
+    if (favoritos.length === 0) {
+        contenido.innerHTML = `<p>Aún no tienes favoritos.</p><button class="btn btn-warning w-100" onclick="agregarUbicacionActualAFavoritos()">⭐ Guardar actual</button>`;
+    } else {
+        contenido.innerHTML = `<div id='favListContainer'></div><button class="btn btn-warning mt-3 w-100" onclick="agregarUbicacionActualAFavoritos()">➕ Agregar</button>`;
+        document.getElementById('favListContainer').innerHTML = favoritos.map((f,i) => `<div class='list-group-item d-flex justify-content-between'><span>📍 ${f.name}</span><div><button class='btn btn-sm btn-info me-1' onclick='verFavoritoEnMapa(${i})'>Ver</button><button class='btn btn-sm btn-danger' onclick='eliminarFavorito(${i})'>🗑</button></div></div>`).join('');
+    }
+}
+
+function verFavoritoEnMapa(i) {
+    limpiarMarcadoresSinUsuario();
+    const f = favoritos[i];
+    if (f) { map.setView([f.lat, f.lng], 14); L.marker([f.lat, f.lng], { icon: getIcon('lugar') }).addTo(markersLayer).bindPopup(`⭐ ${f.name}`).openPopup(); closeInfoPanel(); }
+}
+
+function agregarUbicacionActualAFavoritos() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+            const nombre = prompt("Nombre del lugar:", `Lugar ${favoritos.length + 1}`);
+            if (nombre) { favoritos.push({ name: nombre, lat: pos.coords.latitude, lng: pos.coords.longitude }); localStorage.setItem('favoritos', JSON.stringify(favoritos)); actualizarListaFavoritos(); mostrarNotificacion("⭐ Agregado a favoritos"); openSection('favoritos'); }
+        });
+    }
+}
+
+function eliminarFavorito(i) { if (confirm("¿Eliminar?")) { favoritos.splice(i,1); localStorage.setItem('favoritos',JSON.stringify(favoritos)); actualizarListaFavoritos(); openSection('favoritos'); } }
+function cargarFavoritos() { const saved = localStorage.getItem('favoritos'); if(saved) favoritos = JSON.parse(saved); actualizarListaFavoritos(); }
+function actualizarListaFavoritos() { const div = document.getElementById('favoritosList'); if(div) div.innerHTML = favoritos.map((f,i)=>`<div class="favorite-item"><span>📍 ${f.name}</span><button class="btn btn-sm btn-danger" onclick="eliminarFavorito(${i})">🗑</button></div>`).join(''); }
+function administrarFavoritos() { openSection('favoritos'); closeConfig(); }
+function exportarFavoritos() { if(favoritos.length) { const a = document.createElement('a'); a.href = 'data:application/json,' + encodeURIComponent(JSON.stringify(favoritos)); a.download = 'favoritos.json'; a.click(); mostrarNotificacion("✅ Exportado"); } else mostrarNotificacion("No hay favoritos", 'error'); }
+function closeInfoPanel() { document.getElementById("infoPanel").classList.remove("active"); }
+function openConfig() {
+    document.getElementById("infoPanel").classList.remove("active");
+    document.getElementById("configPanel").classList.add("active");
+    const betaHeading = Array.from(document.querySelectorAll('#configPanel h5')).find(h => h.textContent.includes('Versión Beta') || h.textContent.includes('Beta'));
+    if (betaHeading) {
+        betaHeading.innerHTML = '🚧 Versión Beta 1.0';
+    }
+}
+function closeConfig() { document.getElementById("configPanel").classList.remove("active"); }
+function toggleDarkMode() { document.body.classList.toggle("dark-mode"); localStorage.setItem('darkMode', document.body.classList.contains("dark-mode")); }
+function borrarHistorialCompleto() {
+    if (confirm("¿Borrar historial?")) {
+        localStorage.removeItem('historialBusquedas');
+        document.getElementById('suggestions').classList.remove('active');
+        mostrarNotificacion("🗑 Historial borrado");
+    }
+}
+function eliminarDatosGuardados() { if(confirm("¿Eliminar todos los datos?")) { localStorage.clear(); location.reload(); } }
+function guardarCambiosCuenta() { const np = document.getElementById('configPassword').value, cp = document.getElementById('configConfirmPassword').value; if (np && np !== cp) { mostrarNotificacion("Contraseñas no coinciden", 'error'); return; } if (np && currentUserEmail) localStorage.setItem(currentUserEmail, np); mostrarNotificacion("✅ Guardado"); }
+function mostrarRegistro() { const email = prompt("Ingrese su correo:"), pass = prompt("Ingrese contraseña:"); if (email && pass) { localStorage.setItem(email, pass); mostrarNotificacion("✅ Registrado"); } }
+function iniciarSesion() { const email = document.getElementById("email").value, pass = document.getElementById("password").value; if (localStorage.getItem(email) === pass) { currentUserEmail = email; document.getElementById("loginScreen").style.display = "none"; document.getElementById("appContainer").style.display = "block"; initMap(); setTimeout(() => { const card = document.getElementById("welcomeCard"); card.style.opacity = "0"; setTimeout(() => card.style.display = "none", 1000); }, 15000); } else { mostrarNotificacion("❌ Credenciales incorrectas", 'error'); } }
+
+function changeLanguage() {
+    const lang = document.getElementById('languageSelect').value;
+    localStorage.setItem('idioma', lang);
+    const t = translations[lang];
+    if (t) {
+        document.querySelectorAll('[data-i18n]').forEach(el => { const key = el.getAttribute('data-i18n'); if (t[key]) el.innerHTML = t[key]; });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { const key = el.getAttribute('data-i18n-placeholder'); if (t[key]) el.placeholder = t[key]; });
+        mostrarNotificacion(`🌐 ${lang === 'es' ? 'Español' : lang === 'en' ? 'English' : lang === 'pt' ? 'Português' : lang === 'fr' ? 'Français' : lang === 'de' ? 'Deutsch' : lang === 'it' ? 'Italiano' : lang === 'zh' ? '中文' : lang === 'ja' ? '日本語' : '한국어'}`);
+    }
+}
+
+const idiomaGuardado = localStorage.getItem('idioma');
+if (idiomaGuardado) { document.getElementById('languageSelect').value = idiomaGuardado; changeLanguage(); }
+if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
+</script>
+</body>
+</html> 
